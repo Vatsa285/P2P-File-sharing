@@ -117,6 +117,45 @@ function registerSocketHandlers(io, socket) {
     });
   });
 
+  // ─── Chat Events ───────────────────────────────────────────
+
+  /**
+   * Broadcast a chat message to all other peers in the room.
+   * Payload: { roomId: string, message: string }
+   */
+  socket.on('chat:room-message', ({ roomId, message }) => {
+    if (!message || !roomId) return;
+    const senderUsername = getUsername(socket.id) || 'Anonymous';
+    const payload = {
+      id: `${socket.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      from: socket.id,
+      fromUsername: senderUsername,
+      text: message,
+      timestamp: Date.now(),
+      type: 'room',
+    };
+    socket.to(roomId).emit('chat:room-message', payload);
+  });
+
+  /**
+   * Send a private chat message to a specific peer.
+   * Payload: { targetSocketId: string, message: string }
+   */
+  socket.on('chat:dm', ({ targetSocketId, message }) => {
+    if (!message || !targetSocketId) return;
+    const senderUsername = getUsername(socket.id) || 'Anonymous';
+    const payload = {
+      id: `${socket.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      from: socket.id,
+      fromUsername: senderUsername,
+      text: message,
+      timestamp: Date.now(),
+      type: 'dm',
+      dmPeerId: socket.id, // sender's ID so receiver knows who sent it
+    };
+    io.to(targetSocketId).emit('chat:dm', payload);
+  });
+
   // ─── Disconnect ────────────────────────────────────────────
 
   socket.on('disconnect', (reason) => {

@@ -7,9 +7,10 @@ import DropZone from '../components/DropZone';
 import PeerList from '../components/PeerList';
 import TransferProgress from '../components/TransferProgress';
 import FilePreview from '../components/FilePreview';
+import ChatPanel from '../components/ChatPanel';
 import { getSocket } from '../services/socket';
 
-export default function Room({ roomId, peers, username, connectionStatus, transfers, completedFiles, onSendFile, onCancelTransfer, onDownloadFile, onLeaveRoom }) {
+export default function Room({ roomId, peers, username, connectionStatus, transfers, completedFiles, onSendFile, onCancelTransfer, onDownloadFile, onLeaveRoom, chatMessages, chatUnreadCounts, onSendRoomMessage, onSendDM, onSetChatActiveTab }) {
   const [previewFile, setPreviewFile] = useState(null);
   const navigate = useNavigate();
 
@@ -222,6 +223,17 @@ export default function Room({ roomId, peers, username, connectionStatus, transf
       {previewFile && (
         <FilePreview file={previewFile} onClose={() => setPreviewFile(null)} />
       )}
+
+      {/* Chat Panel */}
+      <ChatPanel
+        peers={peers}
+        currentSocketId={currentSocketId}
+        messages={chatMessages}
+        unreadCounts={chatUnreadCounts}
+        onSendRoomMessage={onSendRoomMessage}
+        onSendDM={onSendDM}
+        onSetActiveTab={onSetChatActiveTab}
+      />
     </div>
   );
 }

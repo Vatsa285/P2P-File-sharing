@@ -6,6 +6,7 @@ import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
 import useRoom from './hooks/useRoom';
 import useFileTransfer from './hooks/useFileTransfer';
+import useChat from './hooks/useChat';
 import Home from './pages/Home';
 import Room from './pages/Room';
 
@@ -107,7 +108,7 @@ function JoinViaLink({ urlRoomId, onJoinRoom }) {
   );
 }
 
-function RoomWrapper({ roomId, peers, username, connectionStatus, transfers, completedFiles, sendFile, cancelTransfer, downloadFile, leaveRoom, joinRoom }) {
+function RoomWrapper({ roomId, peers, username, connectionStatus, transfers, completedFiles, sendFile, cancelTransfer, downloadFile, leaveRoom, joinRoom, chatMessages, chatUnreadCounts, sendRoomMessage, sendDM, setChatActiveTab }) {
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -128,6 +129,11 @@ function RoomWrapper({ roomId, peers, username, connectionStatus, transfers, com
       onCancelTransfer={cancelTransfer}
       onDownloadFile={downloadFile}
       onLeaveRoom={leaveRoom}
+      chatMessages={chatMessages}
+      chatUnreadCounts={chatUnreadCounts}
+      onSendRoomMessage={sendRoomMessage}
+      onSendDM={sendDM}
+      onSetChatActiveTab={setChatActiveTab}
     />
   );
 }
@@ -135,6 +141,12 @@ function RoomWrapper({ roomId, peers, username, connectionStatus, transfers, com
 export default function App() {
   const { roomId, peers, username, connectionStatus, error, createRoom, joinRoom, leaveRoom } = useRoom();
   const { transfers, completedFiles, sendFile, cancelTransfer, downloadFile } = useFileTransfer();
+  const { messages: chatMessages, unreadCounts: chatUnreadCounts, sendRoomMessage, sendDM, setActiveTab: setChatActiveTab, clearChat } = useChat(roomId);
+
+  const handleLeaveRoom = () => {
+    clearChat();
+    leaveRoom();
+  };
 
   return (
     <BrowserRouter>
@@ -171,8 +183,13 @@ export default function App() {
               sendFile={sendFile}
               cancelTransfer={cancelTransfer}
               downloadFile={downloadFile}
-              leaveRoom={leaveRoom}
+              leaveRoom={handleLeaveRoom}
               joinRoom={joinRoom}
+              chatMessages={chatMessages}
+              chatUnreadCounts={chatUnreadCounts}
+              sendRoomMessage={sendRoomMessage}
+              sendDM={sendDM}
+              setChatActiveTab={setChatActiveTab}
             />
           }
         />
