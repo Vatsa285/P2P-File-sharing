@@ -12,12 +12,19 @@ import { getSocket } from '../services/socket';
 
 export default function Room({ roomId, peers, username, connectionStatus, transfers, completedFiles, onSendFile, onCancelTransfer, onDownloadFile, onLeaveRoom, chatMessages, chatUnreadCounts, onSendRoomMessage, onSendDM, onSetChatActiveTab }) {
   const [previewFile, setPreviewFile] = useState(null);
+  const [sendTarget, setSendTarget] = useState('all'); // 'all' | peerId
   const navigate = useNavigate();
 
   const socket = getSocket();
   const currentSocketId = socket?.id;
 
-  const otherPeersExist = peers.filter((p) => p.socketId !== currentSocketId).length > 0;
+  const otherPeers = peers.filter((p) => p.socketId !== currentSocketId);
+  const otherPeersExist = otherPeers.length > 0;
+
+  // If the selected target peer left the room, reset to 'all'
+  if (sendTarget !== 'all' && !otherPeers.find((p) => p.socketId === sendTarget)) {
+    setSendTarget('all');
+  }
 
   const handleFilesSelected = async (files) => {
     if (!otherPeersExist) {
@@ -25,9 +32,15 @@ export default function Room({ roomId, peers, username, connectionStatus, transf
       return;
     }
 
+    const targetPeerId = sendTarget === 'all' ? null : sendTarget;
+    const targetName = sendTarget === 'all'
+      ? 'everyone'
+      : otherPeers.find((p) => p.socketId === sendTarget)?.username || 'peer';
+
     for (const file of files) {
       try {
-        await onSendFile(file);
+        await onSendFile(file, targetPeerId);
+        toast.success(`Sending ${file.name} to ${targetName}`);
       } catch (err) {
         toast.error(`Failed to send ${file.name}: ${err.message}`);
       }
@@ -120,6 +133,37 @@ export default function Room({ roomId, peers, username, connectionStatus, transf
 
           {/* Main area */}
           <div className="lg:col-span-9 space-y-6">
+            {/* Send-to selector */}
+            {otherPeersExist && (
+              <div className="flex items-center gap-3">
+                <label htmlFor="send-target" className="text-xs font-medium text-surface-400 shrink-0 flex items-center gap-1.5">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                  </svg>
+                  Send to
+                </label>
+                <select
+                  id="send-target"
+                  value={sendTarget}
+                  onChange={(e) => setSendTarget(e.target.value)}
+                  className="flex-1 max-w-xs px-3 py-2 rounded-xl bg-surface-800/80 border border-surface-700/50 text-sm text-surface-200 focus:outline-none focus:border-primary-500/50 focus:ring-1 focus:ring-primary-500/20 transition-all appearance-none cursor-pointer"
+                  style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
+                >
+                  <option value="all">🌐 Everyone in room</option>
+                  {otherPeers.map((peer) => (
+                    <option key={peer.socketId} value={peer.socketId}>
+                      👤 {peer.username || 'Anonymous'}
+                    </option>
+                  ))}
+                </select>
+                {sendTarget !== 'all' && (
+                  <span className="text-[10px] text-accent-400 bg-accent-500/10 px-2 py-1 rounded-lg border border-accent-500/20 shrink-0">
+                    🔒 Private
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* Drop zone */}
             <DropZone onFilesSelected={handleFilesSelected} disabled={!otherPeersExist} />
 

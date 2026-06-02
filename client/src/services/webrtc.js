@@ -182,17 +182,33 @@ class WebRTCManager {
   // ─── File Transfer ─────────────────────────────────────────
 
   /**
-   * Send a file to all connected peers via data channels.
+   * Get the list of peer entries to send to.
+   * If targetPeerId is given, returns only that peer; otherwise returns all.
+   * @param {string|null} [targetPeerId]
+   * @returns {Array<[string, PeerConnection]>}
+   */
+  _getTargetPeers(targetPeerId) {
+    if (targetPeerId) {
+      const peerInfo = this.peers.get(targetPeerId);
+      return peerInfo ? [[targetPeerId, peerInfo]] : [];
+    }
+    return Array.from(this.peers.entries());
+  }
+
+  /**
+   * Send a file to all connected peers, or to a specific peer if targetPeerId is provided.
    * @param {File} file
+   * @param {string|null} [targetPeerId] — if set, only send to this peer
    * @returns {string} transferId
    */
-  async sendFile(file) {
+  async sendFile(file, targetPeerId = null) {
     const transferId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     this._outgoingTransfers.set(transferId, { cancelled: false });
 
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    const targets = this._getTargetPeers(targetPeerId);
 
-    // Send file metadata as JSON to all peers
+    // Send file metadata as JSON to target peers
     const metadata = JSON.stringify({
       type: 'file-meta',
       transferId,
@@ -202,7 +218,7 @@ class WebRTCManager {
       totalChunks,
     });
 
-    for (const [, peerInfo] of this.peers) {
+    for (const [, peerInfo] of targets) {
       if (peerInfo.dataChannel && peerInfo.dataChannel.readyState === 'open') {
         peerInfo.dataChannel.send(metadata);
       }
@@ -217,7 +233,7 @@ class WebRTCManager {
       // Check cancellation
       const transfer = this._outgoingTransfers.get(transferId);
       if (!transfer || transfer.cancelled) {
-        this._sendControlMessage({ type: 'transfer-cancel', transferId });
+        this._sendControlMessage({ type: 'transfer-cancel', transferId }, targetPeerId);
         this._outgoingTransfers.delete(transferId);
         return transferId;
       }
@@ -233,7 +249,7 @@ class WebRTCManager {
       });
 
       // Send header then binary data
-      for (const [, peerInfo] of this.peers) {
+      for (const [, peerInfo] of targets) {
         const dc = peerInfo.dataChannel;
         if (dc && dc.readyState === 'open') {
           // Wait for buffer to drain if needed (back-pressure)
@@ -264,7 +280,7 @@ class WebRTCManager {
 
     // Send completion message
     const complete = JSON.stringify({ type: 'file-complete', transferId });
-    for (const [, peerInfo] of this.peers) {
+    for (const [, peerInfo] of targets) {
       if (peerInfo.dataChannel && peerInfo.dataChannel.readyState === 'open') {
         peerInfo.dataChannel.send(complete);
       }
@@ -419,9 +435,10 @@ class WebRTCManager {
     }
   }
 
-  _sendControlMessage(msg) {
+  _sendControlMessage(msg, targetPeerId = null) {
     const json = JSON.stringify(msg);
-    for (const [, peerInfo] of this.peers) {
+    const targets = this._getTargetPeers(targetPeerId);
+    for (const [, peerInfo] of targets) {
       if (peerInfo.dataChannel && peerInfo.dataChannel.readyState === 'open') {
         peerInfo.dataChannel.send(json);
       }

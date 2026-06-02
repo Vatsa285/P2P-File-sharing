@@ -112,9 +112,9 @@ export default function useFileTransfer() {
     };
   }, []);
 
-  const sendFile = useCallback(async (file) => {
+  const sendFile = useCallback(async (file, targetPeerId = null) => {
     try {
-      const transferId = await webrtcManager.sendFile(file);
+      const transferId = await webrtcManager.sendFile(file, targetPeerId);
       return transferId;
     } catch (err) {
       console.error('[useFileTransfer] Send error:', err);
